@@ -392,7 +392,12 @@ All notable changes to this project are documented here. The format follows
   `tests/identity-git.test.ts` with `actual: 'git-worktree', expected: 'git-repo'`. The comparison now
   canonicalises both sides through `realpathSync.native` — falling back to the normalized path when
   the filesystem cannot spell it back, because a directory that does not exist yet still has to be
-  walked up from — and folds case, because the project key folds it. The other half of the same rule
+  walked up from — and folds case, because the project key folds it. Resolving is confined to that
+  comparison: `canonical`, which produces the root the product returns, still only normalizes. The
+  first version of this fix resolved there too, which made an existing directory come back in its
+  long spelling while a sibling that did not exist yet kept the short one — two project keys for one
+  repository, and every Windows assertion that compared a returned root against the path it had
+  handed over went red. The path a caller gets back is the path it gave. The other half of the same rule
   was asserted only on a case-INSENSITIVE filesystem, and so failed on Linux for the honest reason
   that `/tmp/ABC` and `/tmp/abc` are two directories there: `tests/identity.test.ts` now asserts the
   unconditional half everywhere and skips the filesystem-dependent half on a case-sensitive volume.

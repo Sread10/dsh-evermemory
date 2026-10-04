@@ -109,8 +109,7 @@ export function resetGitProbe(): void {
 /**
  * `git rev-parse --show-toplevel` — the repository root, with nested repositories resolving
  * to the innermost one, which is git's own behaviour and the behaviour we want: a vendored
- * repository inside a project is its own project. The answer is canonicalised, so the root
- * this returns is comparable with the path the process was handed, whatever spelling git used.
+ * repository inside a project is its own project.
  */
 export function gitToplevel(cwd: string, runner: GitRunner = spawnGit): string | undefined {
   const result = runner(['rev-parse', '--show-toplevel'], cwd)
@@ -153,13 +152,23 @@ export function isLinkedWorktree(root: string, commonDir: string): boolean {
 /**
  * The comparison {@link isLinkedWorktree} needs: two spellings of one directory, and nothing else.
  *
- * Case is folded because the project key folds it (see {@link keyFor}): git on Windows answers in
- * whatever case its caller used, and `C:\Repo\.git` and `c:\repo\.git` are one directory. Paths
- * the filesystem cannot spell back — a directory that does not exist, a `.git` file inside a
- * worktree — fall back to their normalized form, so the comparison never throws.
+ * This is where the real path is resolved, and deliberately only here. The CI runner hands a
+ * temporary directory over as its 8.3 short name (`C:\Users\RUNNER~1\...`) while git answers with
+ * the long one (`C:\Users\runneradmin\...`), so comparing the spellings directly calls an ordinary
+ * checkout a linked worktree — which is what both Windows jobs did. Resolution belongs to the
+ * comparison rather than to {@link canonical} because the resolved spelling is not the one to
+ * return: the root travels into the project key (see {@link keyFor}), and a resolver that
+ * canonicalised some paths and not others — an existing directory resolves, a sibling that does
+ * not exist yet falls back — would give one repository two keys. Case is folded for the same
+ * reason the key folds it: `C:\Repo` and `c:\repo` are one directory.
  */
 function comparable(path: string): string {
-  return canonical(path).toLowerCase()
+  const normal = normalize(resolve(path))
+  try {
+    return realpathSync.native(normal).toLowerCase()
+  } catch {
+    return normal.toLowerCase()
+  }
 }
 
 /**
@@ -183,23 +192,15 @@ export function findMarkerRoot(cwd: string): string | undefined {
 }
 
 /**
- * A path in the spelling the filesystem itself reports, for comparison and display.
+ * Normalizes the spelling of a path — separators, `.`, `..` — without asking the filesystem.
  *
- * Resolving the real path is what makes two answers comparable at all on Windows: a temporary
- * directory is routinely handed to a process under its 8.3 short name (`C:\Users\RUNNER~1\...`)
- * while git answers with the long one, and a comparison that counts those as two directories calls
- * every ordinary checkout a linked worktree — which is what the CI runner did on both Windows jobs
- * before this resolved anything. The fallback matters just as much: a directory that does not exist
- * yet still has to be walked up from, so a path the filesystem refuses to spell back is normalized
- * instead of rejected.
+ * A path the product returns keeps the spelling it arrived in: git's answer for a repository, the
+ * caller's for a directory that only has a marker. That is load-bearing, because the root becomes
+ * part of the project key, and two callers reaching one directory by different spellings have to
+ * agree. {@link comparable} is the one that resolves real paths, and only to compare.
  */
 function canonical(path: string): string {
-  const normal = normalize(resolve(path))
-  try {
-    return realpathSync.native(normal)
-  } catch {
-    return normal
-  }
+  return normalize(resolve(path))
 }
 
 /** Short, stable, collision-resistant project key. */
