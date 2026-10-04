@@ -1,0 +1,66 @@
+name: CI
+
+# The gate that `prepack` runs locally, run again on a machine nobody has touched by hand.
+#
+# `git` matters here: tests/identity-git.test.ts asks a real repository about worktrees and
+# common directories, so it is SKIPPED on a machine without a git binary (429 of the 437 tests
+# then). The runner images all have git, which is where those three tests actually execute.
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: gate (node ${{ matrix.node }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows is not an afterthought for this plugin: the identity layer walks paths, the
+        # store lives in a profile directory, and the first real install was a desktop DSH on
+        # Windows. Node 22 is the floor the `engines` field declares, 24 the version the plugin
+        # was developed against.
+        os: [ubuntu-latest, windows-latest]
+        node: ['22.x', '24.x']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run check:tokens
+      - run: npm test
+
+  package:
+    name: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+          cache: npm
+      - run: npm ci
+      # `npm pack` runs `prepack` first, and `prepack` is the whole gate — build, declarations,
+      # token audit, typecheck, tests — so a tarball that exists is a tarball that passed. The
+      # artifact is uploaded rather than published: publishing is a deliberate act, and this job
+      # only has to prove the package can be built and that its `files` list is complete.
+      - run: npm pack
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dsh-evermemory-tarball
+          path: dsh-evermemory-*.tgz
+          if-no-files-found: error

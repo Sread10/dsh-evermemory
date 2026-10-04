@@ -9,6 +9,9 @@ project background.
 > **Status: feature complete, first release 0.1.0.** The storage layer, distillation engine, injection
 > engine, tool set, import engine and settings panel are all implemented, with 437 tests covering the
 > contracts, the budget invariants and each module's behaviour; see the [roadmap](#roadmap).
+>
+> Repository: <https://github.com/Sread10/dsh-evermemory> · Release notes:
+> [v0.1.0](./docs/release-notes-v0.1.0.md)
 
 ---
 
@@ -296,8 +299,8 @@ the load and the type check all stayed green.
 - [x] **Step 6** conversational tool set (`evermemory_*`)
 - [x] **Step 7** multi-source import (WorkBuddy / Claude / ChatGPT / ZCode / Hermes)
 - [x] **Step 8** settings panel (host and browser halves, full function)
-- [ ] **Step 9** test coverage, bilingual docs, packaging and release (tests, docs, the 0.1.0 package and
-  the first commit `v0.1.0` are done; the release waits on a repository URL)
+- [x] **Step 9** test coverage, bilingual docs, packaging and release (437 tests, both READMEs, the CI
+  workflow, the 0.1.0 package and the `v0.1.0` tag are all in place)
 
 ---
 
@@ -305,6 +308,8 @@ the load and the type check all stayed green.
 
 - [PROPOSAL.md](./PROPOSAL.md) — the full technical proposal: verified API facts, measured ecosystem
   evidence, and every decision with its rationale. (Written in Chinese.)
+- [docs/release-notes-v0.1.0.md](./docs/release-notes-v0.1.0.md) — the 0.1.0 release notes.
+- Repository: <https://github.com/Sread10/dsh-evermemory>
 
 ## License
 

@@ -13,6 +13,14 @@
   ],
   "license": "MIT",
   "author": "dsh-evermemory contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sread10/dsh-evermemory.git"
+  },
+  "homepage": "https://github.com/Sread10/dsh-evermemory#readme",
+  "bugs": {
+    "url": "https://github.com/Sread10/dsh-evermemory/issues"
+  },
   "type": "module",
   "main": "./lib/index.js",
   "types": "./lib/types/index.d.ts",
