@@ -289,6 +289,15 @@ All notable changes to this project are documented here. The format follows
   `package.json`, then mounts it on a fake context, fires `agent/created`, and asserts a memory body
   reaches the agent's prompt on the turn that asks and is deduplicated on the next. It is the test that
   found the CJK sentence defect, because it asks the question a user would.
+- `tests/client-bundle.test.ts` — the shipped browser half, compiled and mounted. It runs `lib/client.js`
+  in a VM with a fake `window.__ModuleLoader__` and a fake `document`, resolves the module's `require`
+  against the real `react` the module table provides, then calls the `apply` the host would call with a
+  fake settings shell. It asserts what makes the settings section appear at all: one module registered
+  under the plugin id, the stylesheet injected once, both dictionaries under one namespace, the
+  `settings.section` entry with the `id` a list slot requires and order 16, the share carrying `panel`
+  only when a connection exists, and the panel reaching `/dsh-evermemory` with a dropped carrier arriving
+  as `{ ok: false, code: 'transport' }` rather than as a rejection. It exists because the browser half had
+  no execution coverage of any kind until the 0.1.0 defect listed under Fixed made that untenable.
 - `tests/budget.test.ts` — per-turn budget invariants, volatility marking, `unwrapConfig` behaviour,
   and prompt orders against the verified occupied bands.
 - `tests/storage.test.ts`, `tests/retrieval.test.ts`, `tests/identity.test.ts`, `tests/distill.test.ts`
@@ -372,6 +381,24 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **The shipped browser half was not JavaScript.** `scripts/bundle-client.mjs` escaped every backtick
+  and `${` in the bundled body before interpolating it into the module wrapper — escaping that belonged
+  to an earlier revision which pasted the body into the wrapper template literal. The wrapper
+  interpolates it as a VALUE, so interpolation inserts those characters verbatim and the escapes landed
+  in the artifact instead of being consumed: the shipped `lib/client.js:68` read
+  `const API_ROUTE_PREFIX = \`/\${PLUGIN_NAME}\`;`, `node --check` reported `SyntaxError: Invalid or
+  unexpected token`, and every template literal in the browser half was destroyed. Nothing in the gate
+  could see it, because everything that touched the artifact read it as text — the contract suite for
+  its `require` allow-list and byte budget, the dictionary suite for the two dictionaries, the token
+  checker for the `--dsw-*` names — while the typecheck and the other 420-odd tests exercise `src/`.
+  It was found by running `node --check` against the copy installed in a real profile, after the host
+  half had already been proven to mount. The escaping step is gone (the stylesheet needs none: it is
+  embedded with `JSON.stringify`), the wrapper now compiles its own output with `new Script(out,
+  { filename: 'lib/client.js' })` before writing it, so a body that does not parse fails the build, and
+  `tests/client-bundle.test.ts` compiles, loads and mounts the artifact. The wrapper also gained the
+  `Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' })` line that all four reference
+  bundles in the field carry (`dsh-client-locale`, `dsh-client-connection`, `dshmarket`,
+  `dsh-better-sidebar`); measured, the artifact went from 85,253 bytes to 85,126.
 - **A worktree and the checkout it was branched from did not share one project key, so constraint #4
   was not in force.** The linked-worktree branch keyed on `keyFor('git-common', commonDir)` while an
   ordinary checkout keyed on `keyFor('git-repo', root)` — a different namespace over a different path,

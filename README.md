@@ -5,7 +5,7 @@
 新开一个会话，不需要你再自我介绍一次、重新对齐需求、重新解释项目背景。
 
 > **状态：功能完整，首个版本 0.1.0。** 存储层、蒸馏引擎、注入引擎、工具集、导入引擎与设置面板均已实现，
-> 424 项测试覆盖契约、预算不变量与各模块行为；功能模块见 [路线图](#路线图)。
+> 432 项测试覆盖契约、预算不变量与各模块行为；功能模块见 [路线图](#路线图)。
 
 ---
 
@@ -141,6 +141,14 @@ dsh plugin --profile web add "$PWD\dsh-evermemory-0.1.0.tgz"       # PowerShell
 ```
 
 profile 开了 `dsh-hmr` 就即时生效，否则重启 DSH；然后设置 → **记忆与规则**。
+
+`dsh plugin` 只是把参数转发给 pnpm，所以 `pnpm` 必须在 `PATH` 上。没有 pnpm 时，用该 profile 自己的
+pnpm 在那个目录里执行同样的 `add` / `remove`（桌面版自带一套：`resources/runtime/pnpm/bin/pnpm.cjs`
+配 `resources/runtime/primary-runtime/dependencies/node/bin/node.exe`），再把包名手工加进
+`package.json` 的 `dsh.profile.bundles`——`dsh plugin` 做的正是这一步。
+
+> 重新打包后要重装，先 `remove` 再 `add`。依赖规格是同一个 tarball 路径、版本也还是 0.1.0，pnpm 会
+> 认为已经装好，装进去的还是旧文件。
 
 ## 设置面板
 

@@ -7,7 +7,7 @@ Open a new session and you do not re-introduce yourself, re-align on requirement
 project background.
 
 > **Status: feature complete, first release 0.1.0.** The storage layer, distillation engine, injection
-> engine, tool set, import engine and settings panel are all implemented, with 424 tests covering the
+> engine, tool set, import engine and settings panel are all implemented, with 432 tests covering the
 > contracts, the budget invariants and each module's behaviour; see the [roadmap](#roadmap).
 
 ---
@@ -164,6 +164,16 @@ dsh plugin --profile web add "$PWD\dsh-evermemory-0.1.0.tgz"       # PowerShell
 
 With `dsh-hmr` enabled in the profile this applies immediately, otherwise restart DSH; then
 Settings → **Memory & Rules**.
+
+`dsh plugin` only forwards its arguments to pnpm, so `pnpm` has to be on `PATH`. Without it, run the
+same `add` / `remove` with the profile's own pnpm in that directory (the desktop build ships one:
+`resources/runtime/pnpm/bin/pnpm.cjs` with
+`resources/runtime/primary-runtime/dependencies/node/bin/node.exe`) and then add the package name to
+`dsh.profile.bundles` in `package.json` by hand — that reconciliation is the step `dsh plugin` performs.
+
+> To reinstall after a rebuild, `remove` first and then `add`. The dependency spec is the same tarball
+> path and the version is still 0.1.0, so pnpm considers itself already installed and leaves the old
+> files in place.
 
 ## The settings panel
 
