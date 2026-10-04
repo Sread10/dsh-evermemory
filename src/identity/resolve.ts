@@ -247,10 +247,17 @@ export function resolveIdentity(options: ResolveOptions = {}): ProjectIdentity {
       // though `isLinkedWorktree` has already recognised them as one repository — measured, by
       // `tests/identity-git.test.ts` against a real repository.
       const commonDir = gitCommonDir(cwd, runner) ?? resolve(root, '.git')
+      // One repository, one key, whatever spelling reached this process. Git answers this question
+      // two ways: an ordinary checkout is told `.git` relative to the working directory it was
+      // handed, a linked worktree the main repository's `.git` as an absolute path. On a runner
+      // whose temporary directory arrives as `C:\Users\RUNNER~1\...`, the first answer resolved to
+      // the short spelling and the second arrived long, so the two checkouts hashed two strings and
+      // split one repository's memory in two. The key is a hash: the spelling only has to agree.
+      const keyPath = comparable(commonDir)
       if (isLinkedWorktree(root, commonDir)) {
         // `subId` keeps the checkouts distinguishable where a caller cares (the daily log does).
         return {
-          key: keyFor('git-project', commonDir),
+          key: keyFor('git-project', keyPath),
           root,
           name,
           subId: keyFor('worktree', root),
@@ -259,7 +266,7 @@ export function resolveIdentity(options: ResolveOptions = {}): ProjectIdentity {
         }
       }
       return {
-        key: keyFor('git-project', commonDir),
+        key: keyFor('git-project', keyPath),
         root,
         name,
         source: 'git-repo',

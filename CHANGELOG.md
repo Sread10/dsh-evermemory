@@ -397,7 +397,13 @@ All notable changes to this project are documented here. The format follows
   first version of this fix resolved there too, which made an existing directory come back in its
   long spelling while a sibling that did not exist yet kept the short one — two project keys for one
   repository, and every Windows assertion that compared a returned root against the path it had
-  handed over went red. The path a caller gets back is the path it gave. The other half of the same rule
+  handed over went red. The path a caller gets back is the path it gave. Fixing the comparison then
+  exposed the key itself: git answers `--git-common-dir` as `.git` relative to the working directory
+  it was handed for an ordinary checkout and as an absolute path for a linked worktree, so the two
+  checkouts hashed two spellings of one directory and one repository held two memories — the next
+  Windows run failed one test, `worktrees of one repository share one memory`, on both jobs. The key
+  now hashes the resolved common directory, which is harmless because a key is a hash: the only thing
+  its input has to do is agree. The other half of the same rule
   was asserted only on a case-INSENSITIVE filesystem, and so failed on Linux for the honest reason
   that `/tmp/ABC` and `/tmp/abc` are two directories there: `tests/identity.test.ts` now asserts the
   unconditional half everywhere and skips the filesystem-dependent half on a case-sensitive volume.

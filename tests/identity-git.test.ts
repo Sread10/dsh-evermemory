@@ -14,7 +14,7 @@
 
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, normalize } from 'node:path'
 import { after, describe, test } from 'node:test'
@@ -104,6 +104,28 @@ describe('project identity against a real git binary', { skip: SKIP }, () => {
       assert.equal(shouted.subId, undefined, 'another spelling is not a sibling checkout')
       assert.ok(samePath(shouted.root, repo), `root ${shouted.root} should be the repository root ${repo}`)
     }
+
+    // The same trap one layer down, where it cost a Windows CI run: the project key is a hash of
+    // git's `--git-common-dir` answer, and git spells that answer two ways — `.git` relative to the
+    // working directory it was handed for an ordinary checkout, an absolute path for a linked
+    // worktree. When the process was handed `C:\Users\RUNNER~1\...`, the short spelling and the long
+    // one hashed to two different keys, and one repository held two memories. Anything the key is
+    // built from has to be one directory rather than one string, so the check below reaches one
+    // repository by two paths on purpose: `alias` is a second name for `repo`, and the short name a
+    // runner hands over is exactly that.
+    const resolved = realpathSync.native(repo)
+    if (!samePath(resolved, repo)) {
+      const long = resolveIdentity({ cwd: resolved })
+      assert.equal(long.key, identity.key, `one repository, one key: ${resolved} and ${repo} disagree`)
+      assert.ok(samePath(long.root, repo), `root ${long.root} should be the repository root ${repo}`)
+    }
+
+    const alias = join(temporary(), 'alias')
+    symlinkSync(repo, alias, 'junction')
+    assert.notEqual(alias.toLowerCase(), repo.toLowerCase(), 'the alias has to be a second name for this to prove anything')
+    const throughAlias = resolveIdentity({ cwd: alias })
+    assert.equal(throughAlias.key, identity.key, `one repository, one key: ${alias} and ${repo} disagree`)
+    assert.equal(throughAlias.source, 'git-repo', 'an alias is not a worktree')
   })
 
   test('a linked worktree shares the project key and carries its own sub-id', () => {
