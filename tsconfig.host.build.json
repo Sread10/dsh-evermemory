@@ -1,0 +1,32 @@
+{
+  // Declaration emission for the host half.
+  //
+  // The shipped artifact is `lib/index.js`, built by tsdown; this config exists only so
+  // `exports["."].types` resolves to a real file. It is separate from tsconfig.host.json
+  // because that one also covers `tests/` and `tsdown.config.ts`, and tsc refuses a
+  // `rootDir` that does not contain every file in the program.
+  //
+  // Both halves declare `composite`, and the client config references this one, so
+  // `tsc -b` resolves the type-only imports the client sources make into `src/*.ts`.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    // The base config sets noEmit, and a referenced project may not disable emit.
+    "noEmit": false,
+    // tsdown builds the JavaScript. Emitting it here too would ship a second, unbundled
+    // copy of the host half — including the modules the client half shares.
+    "emitDeclarationOnly": true,
+    "rootDir": "src",
+    "outDir": "lib/types",
+    // The base config sets `types: []` so the browser half cannot reach Node globals by
+    // accident. This config emits declarations for the host half, which is pure Node, so
+    // without this the emit fails on `node:path`, `process` and `node:sqlite`.
+    "types": ["node"],
+    // Build metadata lives OUTSIDE lib/, because everything under lib/ is published and a
+    // `.tsbuildinfo` is machine-specific noise. Cleaning it up after the fact does not work:
+    // `npm pack` runs `prepack`, which re-runs `types`, which writes the files straight back.
+    "tsBuildInfoFile": ".tsbuildinfo/host.tsbuildinfo"
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["src/client/**"]
+}

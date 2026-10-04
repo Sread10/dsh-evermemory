@@ -1,0 +1,17 @@
+node_modules/
+lib/
+.tsbuildinfo/
+*.tsbuildinfo
+
+# Local database / exports produced by running the plugin
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+.evermemory-local/
+
+# Recon scratch space (never part of the plugin)
+.recon/
+
+# Release artifacts: produced by `npm pack`, installed by hand, never committed
+*.tgz

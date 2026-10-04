@@ -1,0 +1,10 @@
+{
+  "$comment": [
+    "Peer packages supplied at runtime by the DSH host process, not installable from the",
+    "registry at the installed runtime's version. Each entry provides a minimal surface:",
+    "'types' is what the source is type-checked against, 'runtime' is what the test loader",
+    "hook substitutes. Both exist only to make build/typecheck/test run without the host —",
+    "the shipped plugin always resolves the real packages."
+  ],
+  "peerPackages": ["@deepseek-ai/cordis", "@deepseek-ai/dsh-llm", "@deepseek-ai/dsh-settings", "@deepseek-ai/dsh-system-prompt", "@deepseek-ai/dsh-tools", "@deepseek-ai/schemastery"]
+}

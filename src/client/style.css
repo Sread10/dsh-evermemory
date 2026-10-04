@@ -1,0 +1,427 @@
+/*
+ * dsh-evermemory — settings page stylesheet.
+ *
+ * The only file under src/client/ allowed to name a raw colour, because it is where the
+ * fallbacks live. Everything else references these custom properties.
+ *
+ * Two rules govern every declaration below:
+ *
+ *  1. **Tokens only.** The host defines a three-tier vocabulary — `--dsw-static-*` raw
+ *     palette, `--dsw-alias-*` semantic, `--dsw-<family>-*` primitives (radius, shadow,
+ *     focus ring, fonts). The semantic tier is the one to use, and it is why dark mode
+ *     needs no JavaScript: `body[data-ds-dark-theme]` redefines the same names.
+ *  2. **Geometry stays out of the token system.** Widths, padding and gap are plain
+ *     numbers; designs that route layout through colour tokens just make them harder to
+ *     read.
+ *
+ * The row/card recipes are copied from the host's own settings pages, which hand-roll
+ * their rows for the same reason: no `Card` or `List` primitive exists. A plugin row is a
+ * 0.5px `--dsw-alias-border-l2` hairline with 16px of vertical padding — thin enough to
+ * read as a separator rather than a box.
+ *
+ * Classes are prefixed `evm-` so nothing collides with host styles.
+ */
+
+.evm-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  font-family: var(--dsw-font-sans);
+  color: var(--dsw-alias-label-primary);
+}
+
+.evm-page-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.evm-page-title {
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary);
+}
+
+.evm-page-subtitle {
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.evm-section-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 8px;
+}
+
+.evm-section-title {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary);
+}
+
+.evm-section-desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.evm-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--dsw-alias-bg-layer-2);
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-lg);
+  padding: 0 16px;
+}
+
+/* The last row's hairline would double up with the card's own bottom border. */
+.evm-card > .evm-row:last-child {
+  border-bottom: none;
+}
+
+.evm-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 16px 0;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.evm-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.evm-row-title {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.evm-row-desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.evm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 0;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.evm-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 10px;
+  font-family: var(--dsw-font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-bg-layer-1);
+  border: 1px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-sm);
+  outline: none;
+  resize: vertical;
+}
+
+.evm-input::placeholder {
+  color: var(--dsw-alias-label-caption);
+}
+
+.evm-input:disabled {
+  color: var(--dsw-alias-label-dimmed);
+  cursor: not-allowed;
+}
+
+/*
+ * Focus styling comes from the host's focus-ring token, with the business-state colour as
+ * the fallback so the ring is never invisible. `:focus-visible` rather than `:focus` keeps
+ * a pointer click from drawing a ring.
+ */
+.evm-input:focus-visible,
+.evm-button:focus-visible,
+.evm-switch:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid
+    var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+}
+
+/*
+ * Switch. The visual state keys off `aria-checked`, not off a class — the same pairing the
+ * host primitive uses, so assistive technology and the styling cannot drift apart.
+ *
+ * `corner-shape: round` is required: the host applies `corner-shape: superellipse(1.5)`
+ * globally, and a capsule that does not opt out renders subtly wrong.
+ */
+.evm-switch {
+  flex: none;
+  position: relative;
+  width: 36px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: var(--dsw-radius-panel);
+  corner-shape: round;
+  background: var(--dsw-alias-border-l3);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.evm-switch[aria-checked='true'] {
+  background: var(--dsw-alias-brand-primary);
+}
+
+.evm-switch:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.evm-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--dsw-radius-panel);
+  corner-shape: round;
+  background: var(--dsw-alias-label-primary-foreground);
+  box-shadow: var(--dsw-shadow-lv1);
+  transition: transform 0.15s ease;
+}
+
+.evm-switch[aria-checked='true'] .evm-switch-thumb {
+  transform: translateX(16px);
+}
+
+/* Button. Filled brand for the primary action, flat for everything else. */
+.evm-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: var(--dsw-font-sans);
+  border: 1px solid transparent;
+  border-radius: var(--dsw-radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.evm-button-md {
+  height: 36px;
+  padding: 0 16px;
+  font-size: 14px;
+}
+
+.evm-button-sm {
+  height: 28px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.evm-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.evm-button-primary {
+  background: var(--dsw-alias-button-primary-fill);
+  color: var(--dsw-alias-label-primary-foreground);
+}
+
+.evm-button-primary:hover:not(:disabled) {
+  background: var(--dsw-alias-button-primary-hover);
+}
+
+.evm-button-ghost {
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+}
+
+.evm-button-ghost:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.evm-button-outline {
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  border-color: var(--dsw-alias-border-l3);
+}
+
+.evm-button-outline:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+/* Inline notes: warnings and failures, distinguished by label colour only. */
+.evm-note {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 18px;
+  border-radius: var(--dsw-radius-sm);
+  background: var(--dsw-alias-bg-layer-2);
+}
+
+.evm-note-warn {
+  color: var(--dsw-alias-state-warn-label);
+}
+
+.evm-note-danger {
+  color: var(--dsw-alias-label-error);
+}
+
+.evm-footer {
+  margin: 0;
+  padding-top: 8px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-caption);
+}
+
+/*
+ * A row of short fields side by side, collapsing to one column when the settings pane is
+ * narrow. `minmax(0, 1fr)` rather than `1fr`: without the explicit minimum a long unbroken
+ * value (a path, a tag list) widens its track and the fields stop being equal.
+ */
+.evm-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 720px) {
+  .evm-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Native select, on top of the input skin. The arrow is the platform's. */
+.evm-select {
+  height: 36px;
+  padding: 0 8px;
+  cursor: pointer;
+}
+
+/* Tab strip. Active state keys off `aria-selected`, same as the switch off `aria-checked`. */
+.evm-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: var(--dsw-radius-sm);
+  background: var(--dsw-alias-bg-layer-2);
+}
+
+.evm-tab {
+  flex: 1;
+  height: 30px;
+  padding: 0 12px;
+  font-family: var(--dsw-font-sans);
+  font-size: 13px;
+  line-height: 30px;
+  color: var(--dsw-alias-label-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--dsw-radius-sm);
+  cursor: pointer;
+}
+
+.evm-tab[aria-selected='true'] {
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-bg-layer-1);
+  box-shadow: var(--dsw-shadow-lv1);
+}
+
+.evm-tab:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid
+    var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+}
+
+/* Pills: layer, status and tag labels. Wrapping, because a tag list has no length limit. */
+.evm-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.evm-chip {
+  padding: 1px 8px;
+  font-size: 11px;
+  line-height: 18px;
+  border-radius: var(--dsw-radius-sm);
+  corner-shape: round;
+  white-space: nowrap;
+}
+
+.evm-chip-plain {
+  color: var(--dsw-alias-label-secondary);
+  background: var(--dsw-alias-bg-layer-2);
+}
+
+.evm-chip-muted {
+  color: var(--dsw-alias-label-caption);
+  background: transparent;
+  border: 1px solid var(--dsw-alias-border-l3);
+}
+
+.evm-chip-warn {
+  color: var(--dsw-alias-state-warn-label);
+  background: var(--dsw-alias-bg-layer-2);
+}
+
+.evm-empty {
+  margin: 0;
+  padding: 20px 0;
+  font-size: 13px;
+  line-height: 20px;
+  text-align: center;
+  color: var(--dsw-alias-label-caption);
+}
+
+/*
+ * Memory body text. Pre-wrapped: a stored memory keeps its own line breaks, and collapsing
+ * them would join bullet points into one paragraph.
+ */
+.evm-body {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.evm-list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+/* Markdown export preview. Scrolls rather than grows: the export can be a whole database. */
+.evm-pre {
+  max-height: 320px;
+  margin: 8px 0 0;
+  padding: 12px;
+  overflow: auto;
+  font-family: var(--dsw-font-mono, monospace);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+  background: var(--dsw-alias-bg-layer-2);
+  border-radius: var(--dsw-radius-sm);
+}

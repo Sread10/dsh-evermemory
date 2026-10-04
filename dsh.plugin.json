@@ -1,0 +1,39 @@
+/**
+ * @deepseek-ai/dsh-package-manifest reads the runtime manifest from the `dsh` field of
+ * package.json. This file is NOT part of that contract.
+ *
+ * It exists because the project brief asked for it, and because the DSH-better-sidebar
+ * repository uses a file by this name as its marketplace inventory entry (that repo is
+ * the only place it has ever been observed; it is not present in this package's own
+ * node_modules, in the asar, or in any installed plugin). Treat it as optional catalogue
+ * metadata: the loader ignores it, and deleting it changes nothing at runtime.
+ *
+ * The three identifiers that must actually agree are, in order of importance:
+ *   1. cordis.patch.yml `insert.id`   === the exported cordis `name`   ('dsh-evermemory')
+ *   2. cordis.patch.yml `insert.name` === package.json `name`          ('dsh-evermemory')
+ *   3. package.json `dsh.client.inject` lists this plugin's client-side service deps
+ */
+{
+  "manifestVersion": 1,
+  "id": "dsh-evermemory",
+  "package": "dsh-evermemory",
+  "kind": "plugin",
+  "host": {
+    "entry": "./lib/index.js",
+    "patch": "./cordis.patch.yml"
+  },
+  "client": {
+    "entry": "./lib/client.js",
+    "platform": "web"
+  },
+  "meta": {
+    "title": {
+      "zh": "记忆与规则",
+      "en": "Memory & Rules"
+    },
+    "description": {
+      "zh": "跨会话长期记忆与行为引导规则：四层记忆、零 LLM 蒸馏、前缀缓存友好的按需注入。",
+      "en": "Cross-session long-term memory and behavioural rules: four memory layers, zero-LLM distillation, on-demand injection that respects the prefix cache."
+    }
+  }
+}

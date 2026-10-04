@@ -1,0 +1,23 @@
+{
+  // Declaration emission for the browser half.
+  //
+  // Mirrors tsconfig.client.json, but with a `rootDir` tsc will accept and a reference to
+  // the host config so the shared modules under `src/` are read from their declarations
+  // rather than re-checked here.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    // The base config sets noEmit, and a referenced project may not disable emit.
+    "noEmit": false,
+    // tsdown builds the JavaScript. Emitting it here too would ship a second, unbundled
+    // copy of the browser half.
+    "emitDeclarationOnly": true,
+    "rootDir": "src/client",
+    "outDir": "lib/types/client",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["react"],
+    "tsBuildInfoFile": ".tsbuildinfo/client.tsbuildinfo"
+  },
+  "references": [{ "path": "./tsconfig.host.build.json" }],
+  "include": ["src/client/**/*.ts", "src/client/**/*.tsx"]
+}

@@ -1,0 +1,28 @@
+# dsh-evermemory bundle patch — one insert row that mounts this plugin.
+#
+# Contract (verified against shipping third-party plugins and the official
+# cordis-plugin-development skill):
+#
+#   insert.name  MUST be the PACKAGE name. After `dsh plugin add`, the profile's
+#                node_modules resolves it to this package's `main` / `exports['.']`.
+#   insert.id    MUST equal the cordis `name` exported by lib/index.js ('dsh-evermemory').
+#                The Loader entry id is ALSO the settings namespace, so this string is
+#                what `SettingsForms` keys the preferences form on.
+#
+# No `config:` block is shipped on purpose. Every field in the host Config schema has a
+# default, and cordis fills defaults from the schema, so an absent config is never
+# `undefined`. A profile that wants to override a value restates the WHOLE config —
+# a patch replaces the targeted row's entire `config` object — by adding an
+# id-targeted row to that profile's own cordis.patch.yml:
+#
+#   - id: dsh-evermemory
+#     name: dsh-evermemory
+#     config:
+#       rulesEnabled: false
+#
+# The `disabled:` guard prevents a "duplicate prefix route" boot failure when the same
+# package is mounted twice (e.g. bundled by a preset AND added to the profile).
+- insert:
+    - id: dsh-evermemory
+      name: dsh-evermemory
+      disabled: !!js "[...ctx.loader.entries()].some((e) => e.options.name === 'dsh-evermemory' && e.options.id !== 'dsh-evermemory' && !e.disabled)"

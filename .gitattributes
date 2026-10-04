@@ -1,0 +1,3 @@
+# Line endings in the repository follow `.editorconfig`: every file is stored with LF, and a
+# checkout on any platform gets LF too, so a Windows contributor cannot rewrite the whole tree.
+* text=auto eol=lf

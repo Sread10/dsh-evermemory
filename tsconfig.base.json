@@ -1,0 +1,56 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    // The client bundle is the only JSX in the project. The framework's module table
+    // provides `react/jsx-runtime`, and `jsx: 'react-jsx'` emits calls into it rather than
+    // into `React.createElement`, which keeps `React` out of the client sources entirely.
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    // Tests import `src/*.ts` by its real extension, because the test runner loads the
+    // sources directly rather than a build output.
+    "allowImportingTsExtensions": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    // `types` emits declarations straight from these sources, and the sources import each
+    // other as `./x.js` because that is what the compiled output needs. Without this,
+    // tsc would reject `.ts` specifiers under allowImportingTsExtensions when emitting.
+    "rewriteRelativeImportExtensions": true,
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "useUnknownInCatchVariables": true,
+
+    "types": [],
+
+    // Every `@deepseek-ai/*` package is injected by the DSH host process and is not
+    // installable from the registry at the installed runtime's version, so the source is
+    // type-checked against the shallow declarations in types/shims/. The runtime shims in
+    // scripts/shims/ are served to the test loader by scripts/peer-hooks.mjs.
+    //
+    // 'react' is not aliased: its real types are needed to check the .tsx components, and
+    // it is a plain registry package. Only the test loader substitutes it.
+    "paths": {
+      "@deepseek-ai/cordis": ["./types/shims/cordis.d.ts"],
+      "@deepseek-ai/dsh-llm": ["./types/shims/dsh-llm.d.ts"],
+      "@deepseek-ai/dsh-settings": ["./types/shims/dsh-settings.d.ts"],
+      "@deepseek-ai/dsh-system-prompt": ["./types/shims/dsh-system-prompt.d.ts"],
+      "@deepseek-ai/dsh-tools": ["./types/shims/dsh-tools.d.ts"],
+      "@deepseek-ai/schemastery": ["./types/shims/schemastery.d.ts"]
+    }
+  }
+}

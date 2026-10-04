@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": []
+  },
+  "include": ["src/client/**/*.ts", "src/client/**/*.tsx", "src/*.ts", "types/shims/*.d.ts"],
+  // Why this list exists, because the reason is not obvious from the names.
+  //
+  // `include` cannot be narrowed to the browser half alone — the components import `constants.ts`
+  // and `version.ts` — and `src/*.ts` therefore also matches the HOST entry point. `exclude` does
+  // not stop tsc following an import, so leaving `index.ts` in means the browser program compiles
+  // the entire storage stack, reports the host's own `node:fs` and `node:sqlite` imports as
+  // errors, and exits 2 on a correct tree.
+  //
+  // Excluding `index.ts` ALSO drops everything reachable only through it, which is the whole host
+  // half. What is left is exactly what a browser module may legitimately load: the components,
+  // `constants.ts` and `version.ts`. Those two are the deliberate part — this is the only config
+  // compiled without `types: ["node"]` or `types: ["react"]`, so a Node builtin imported into a
+  // shared constant fails HERE, before a user's browser fails.
+  "exclude": ["src/index.ts"]
+}

@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "types": ["node"]
+  },
+  "include": [
+    "src/index.ts",
+    "src/**/*.ts",
+    "types/shims/*.d.ts",
+    "tests/**/*.ts",
+    "tsdown.config.ts"
+  ],
+  "exclude": ["src/client/**"]
+}
