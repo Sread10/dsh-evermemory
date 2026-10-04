@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, describe, test } from 'node:test'
@@ -317,9 +317,22 @@ describe('resolveIdentity', () => {
     assert.notEqual(a.key, b.key, 'two projects must not collide')
   })
 
-  test('paths differing only by case agree, because Windows treats them as one', () => {
+  test('paths differing only by case agree, because Windows treats them as one', (t) => {
     const root = tempDir()
     writeFileSync(join(root, 'package.json'), '{}')
+
+    // The rule underneath is unconditional, because the project key folds case: a common
+    // directory spelled in another case is the same repository, not a linked worktree. CI runs
+    // this line on a Windows runner and on Linux, so the halves are separated — this one holds
+    // everywhere, and the filesystem half below is checked rather than assumed.
+    assert.equal(isLinkedWorktree(root, join(root, '.git').toUpperCase()), false)
+    assert.equal(isLinkedWorktree(root, join(root, 'elsewhere', '.git')), true)
+
+    if (!existsSync(root.toUpperCase())) {
+      t.skip('this filesystem is case-sensitive, so the other spelling is a different directory')
+      return
+    }
+
     const runner = fakeGit({ '--version': VERSION_MISSING }).runner
     resetGitProbe()
     const lower = resolveIdentity({ cwd: root, runner })

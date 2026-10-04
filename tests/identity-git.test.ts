@@ -14,7 +14,7 @@
 
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, normalize } from 'node:path'
 import { after, describe, test } from 'node:test'
@@ -55,9 +55,24 @@ function initRepo(dir: string): void {
   )
 }
 
-/** Paths are compared the way the product compares them: resolved and case-insensitive on Windows. */
+/**
+ * Paths are compared the way the product compares them: resolved to the spelling the filesystem
+ * itself reports, then case-folded. Anything less fails on the Windows CI runner, where the
+ * temporary directory reaches the process under an 8.3 short name (`C:\Users\RUNNER~1\...`) while
+ * git answers with the long one — two spellings of one directory.
+ */
 function samePath(left: string, right: string): boolean {
-  return normalize(left).toLowerCase() === normalize(right).toLowerCase()
+  return comparable(left) === comparable(right)
+}
+
+/** @see samePath */
+function comparable(path: string): string {
+  const normal = normalize(path)
+  try {
+    return realpathSync.native(normal).toLowerCase()
+  } catch {
+    return normal.toLowerCase()
+  }
 }
 
 describe('project identity against a real git binary', { skip: SKIP }, () => {
@@ -78,6 +93,17 @@ describe('project identity against a real git binary', { skip: SKIP }, () => {
     assert.equal(identity.name, 'project')
     assert.equal(identity.subId, undefined, 'a normal checkout has no sibling to distinguish')
     assert.equal(identity.trustworthy, true)
+
+    // The runner spells the directory differently from the path it hands the process, and git
+    // answers with the filesystem's own spelling. That is one directory, not two: the checkout
+    // stays a repository, keeps no sibling sub-id, and keeps the root git named.
+    const spelled = nested.toUpperCase()
+    if (existsSync(spelled)) {
+      const shouted = resolveIdentity({ cwd: spelled })
+      assert.equal(shouted.source, 'git-repo')
+      assert.equal(shouted.subId, undefined, 'another spelling is not a sibling checkout')
+      assert.ok(samePath(shouted.root, repo), `root ${shouted.root} should be the repository root ${repo}`)
+    }
   })
 
   test('a linked worktree shares the project key and carries its own sub-id', () => {

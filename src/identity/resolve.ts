@@ -1,5 +1,5 @@
 import { resolve, normalize } from 'node:path'
-import { existsSync, statSync } from 'node:fs'
+import { existsSync, realpathSync, statSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import {
@@ -109,7 +109,8 @@ export function resetGitProbe(): void {
 /**
  * `git rev-parse --show-toplevel` — the repository root, with nested repositories resolving
  * to the innermost one, which is git's own behaviour and the behaviour we want: a vendored
- * repository inside a project is its own project.
+ * repository inside a project is its own project. The answer is canonicalised, so the root
+ * this returns is comparable with the path the process was handed, whatever spelling git used.
  */
 export function gitToplevel(cwd: string, runner: GitRunner = spawnGit): string | undefined {
   const result = runner(['rev-parse', '--show-toplevel'], cwd)
@@ -137,14 +138,28 @@ export function gitCommonDir(cwd: string, runner: GitRunner = spawnGit): string 
 /**
  * True when `commonDir` is not the `.git` directory sitting directly inside `root`.
  *
- * Compared as paths, not as strings: on Windows git may print `C:/repo/.git` while the
- * filesystem hands back `C:\repo\.git`, and a string comparison would then call every
- * ordinary checkout a worktree — which would give it a different project key from the same
- * repository's other checkouts, breaking constraint #4 in the quietest possible way.
+ * Compared as directories, not as strings: on Windows git may print `C:/repo/.git` while the
+ * filesystem hands back `C:\repo\.git`, and a string comparison would then call every ordinary
+ * checkout a worktree — which would give it a different project key from the same repository's
+ * other checkouts, breaking constraint #4 in the quietest possible way. The CI runner produced the
+ * same outcome from a different spelling again — a temporary directory handed over as
+ * `C:\Users\RUNNER~1\...` against git's long answer — which is why the comparison resolves real
+ * paths and folds case rather than normalising separators alone.
  */
 export function isLinkedWorktree(root: string, commonDir: string): boolean {
-  const normal = canonical(resolve(root, '.git'))
-  return normalize(commonDir) !== normalize(normal)
+  return comparable(commonDir) !== comparable(resolve(root, '.git'))
+}
+
+/**
+ * The comparison {@link isLinkedWorktree} needs: two spellings of one directory, and nothing else.
+ *
+ * Case is folded because the project key folds it (see {@link keyFor}): git on Windows answers in
+ * whatever case its caller used, and `C:\Repo\.git` and `c:\repo\.git` are one directory. Paths
+ * the filesystem cannot spell back — a directory that does not exist, a `.git` file inside a
+ * worktree — fall back to their normalized form, so the comparison never throws.
+ */
+function comparable(path: string): string {
+  return canonical(path).toLowerCase()
 }
 
 /**
@@ -167,9 +182,24 @@ export function findMarkerRoot(cwd: string): string | undefined {
   }
 }
 
-/** Normalizes a path for comparison and display without resolving symlinks. */
+/**
+ * A path in the spelling the filesystem itself reports, for comparison and display.
+ *
+ * Resolving the real path is what makes two answers comparable at all on Windows: a temporary
+ * directory is routinely handed to a process under its 8.3 short name (`C:\Users\RUNNER~1\...`)
+ * while git answers with the long one, and a comparison that counts those as two directories calls
+ * every ordinary checkout a linked worktree — which is what the CI runner did on both Windows jobs
+ * before this resolved anything. The fallback matters just as much: a directory that does not exist
+ * yet still has to be walked up from, so a path the filesystem refuses to spell back is normalized
+ * instead of rejected.
+ */
 function canonical(path: string): string {
-  return normalize(resolve(path))
+  const normal = normalize(resolve(path))
+  try {
+    return realpathSync.native(normal)
+  } catch {
+    return normal
+  }
 }
 
 /** Short, stable, collision-resistant project key. */

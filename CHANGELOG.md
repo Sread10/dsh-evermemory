@@ -381,6 +381,21 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **A checkout whose path the filesystem spells differently was read as a linked worktree.**
+  `isLinkedWorktree` in `src/identity/resolve.ts` compared git's `--git-common-dir` answer with
+  `<root>/.git` after `normalize`, which fixes separators and nothing else: no real-path resolution,
+  no case folding. Both spellings of one directory therefore counted as two directories, every
+  ordinary checkout came back `source: 'git-worktree'` with a spurious `subId`, and one repository
+  keyed differently depending on how the process had been handed its path — constraint #4 broken in
+  the quietest available way. Found by the GitHub runner, which hands a temporary directory over as
+  `C:\Users\RUNNER~1\...` while git answers with the long name: both Windows jobs failed
+  `tests/identity-git.test.ts` with `actual: 'git-worktree', expected: 'git-repo'`. The comparison now
+  canonicalises both sides through `realpathSync.native` — falling back to the normalized path when
+  the filesystem cannot spell it back, because a directory that does not exist yet still has to be
+  walked up from — and folds case, because the project key folds it. The other half of the same rule
+  was asserted only on a case-INSENSITIVE filesystem, and so failed on Linux for the honest reason
+  that `/tmp/ABC` and `/tmp/abc` are two directories there: `tests/identity.test.ts` now asserts the
+  unconditional half everywhere and skips the filesystem-dependent half on a case-sensitive volume.
 - **A session with no project key wrote a journal it could never read back.** `projectKey` is `null`
   when the working directory carries no trustworthy identity (no git repository, no marker file), and
   three readers in `src/memory/service.ts` treated that `null` as "no rows" rather than as the
