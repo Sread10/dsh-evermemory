@@ -69,12 +69,21 @@ export function createSession(cwd: string | undefined): MemorySession {
  * One definition, two callers — the injection engine's index/card reader and the search tool.
  * They must agree: a memory the model can find with a tool but that is never injected, or worse
  * the reverse, is a store whose contents depend on how you ask.
+ *
+ * A `null` key is a LAYER here, not a wildcard and not "nothing": a session with no identity
+ * reads the rows filed without one, which is where its own daily log goes. A keyed session reads
+ * its own project layer instead. The repository's `project_key IS ?` is what keeps those two
+ * apart in one statement — a null key matches the null rows, and no key matches another key.
  */
 export function listVisible(repository: MemoryRepository, projectKey: string | null, query: MemoryQuery): MemoryRecord[] {
   const global = repository.list({ ...query, scope: ['global'], projectKey: null, limit: READ_LIMIT })
-  if (projectKey === null) return global
-  const project = repository.list({ ...query, scope: ['project', 'daily'], projectKey, limit: READ_LIMIT })
-  return [...global, ...project]
+  const own = repository.list({
+    ...query,
+    scope: projectKey === null ? ['daily'] : ['project', 'daily'],
+    projectKey,
+    limit: READ_LIMIT,
+  })
+  return [...global, ...own]
 }
 
 /**
@@ -243,7 +252,10 @@ export class MemoryService {
     }
 
     if (record.scope === 'project' || record.scope === 'daily') {
-      if (session.projectKey === null || record.projectKey !== session.projectKey) {
+      // The key must match, and `null` is a key like any other: a session with no identity owns the
+      // unprojected day it wrote — a row a session can write and read but never archive would only
+      // accumulate. A keyed row still refuses every other key, the null one included.
+      if (record.projectKey !== session.projectKey) {
         return {
           ok: false,
           id: record.id,
@@ -327,15 +339,18 @@ export class MemoryService {
    *
    * The project key is bound only for the layers that are keyed by it: global and identity rows
    * are shared and are read with a null key. A project-layer request from a session with no
-   * identity lists nothing, which is the same answer the injection path gives it.
+   * identity lists nothing — it has no project to list — but the daily layer is NOT dropped with
+   * it: the unprojected day is exactly what such a session writes, so it has to be able to read
+   * it back. Dropping both is how a journal entry gets written and then can never be found again.
    */
   #listScopes(session: MemorySession, scopes: readonly MemoryScope[]): MemoryRecord[] {
-    const needsProject = scopes.some((scope) => scope === 'project' || scope === 'daily')
-    if (needsProject && session.projectKey === null) return []
+    const readable = session.projectKey === null ? scopes.filter((scope) => scope !== 'project') : scopes
+    if (readable.length === 0) return []
+    const needsProject = readable.some((scope) => scope === 'project' || scope === 'daily')
     return this.#repository.list({
       status: 'active',
       orderBy: 'used',
-      scope: scopes,
+      scope: readable,
       projectKey: needsProject ? session.projectKey : null,
       limit: READ_LIMIT,
     })
@@ -380,13 +395,17 @@ export class MemoryService {
    * enforcing twice. It compares KEYS rather than testing for null — an earlier version let any
    * keyed row through, which would have been right only by accident, since the SQL above it was
    * what actually kept other projects' rows out.
+   *
+   * A key is a key, including the null one: `null` names the unprojected layer, which is where a
+   * session without an identity files its daily log and therefore what it must be able to read
+   * back. A keyed row still needs its own key, so the fix does not widen anyone else's reach.
    */
   #filter(records: readonly MemoryRecord[], request: SearchRequest, projectKey: string | null): MemoryRecord[] {
     const scopes = request.scope
     return records.filter((record) => {
       if (scopes !== undefined && scopes.length > 0 && !scopes.includes(record.scope)) return false
       if (record.scope !== 'project' && record.scope !== 'daily') return true
-      return projectKey !== null && record.projectKey === projectKey
+      return record.projectKey === projectKey
     })
   }
 }

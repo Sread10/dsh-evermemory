@@ -244,16 +244,23 @@ describe('project isolation in the assembly', () => {
     assert.ok(!text.includes('别的项目的约定'))
   })
 
-  test('an untrustworthy identity sees the global layer only', async () => {
+  test('an untrustworthy identity sees the global layer and the day it logged itself', async () => {
     const { repository } = await fresh()
     repository.insert({ text: '全局偏好', scope: 'global' })
     repository.insert({ text: '项目约定', scope: 'project', projectKey: PROJECT })
+    // A session with no identity files its journal under a null key, and that unprojected day is
+    // the one daily row it owns: withholding it left the session unable to reach anything it had
+    // written (see `listVisible`), while the keyed day below belongs to a project it cannot name.
+    repository.insert({ text: '无项目的日记', scope: 'daily', projectKey: null })
+    repository.insert({ text: '别的项目的日记', scope: 'daily', projectKey: PROJECT })
     const state = new InjectionState()
     const text = state.rebuild(
       deps(repository, { projectKey: null, config: config({ turnBudgetChars: 100_000 }) }),
     )
     assert.ok(text.includes('全局偏好'))
+    assert.ok(text.includes('无项目的日记'), `the session is not shown the day it wrote itself: ${text}`)
     assert.ok(!text.includes('项目约定'), `a project entry leaked into an untrusted-key assembly: ${text}`)
+    assert.ok(!text.includes('别的项目的日记'), `a keyed daily row leaked into an untrusted-key assembly: ${text}`)
   })
 
   test('the global layer is not pushed out by a large project layer', async () => {

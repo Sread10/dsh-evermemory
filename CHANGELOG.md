@@ -381,6 +381,23 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- **A session with no project key wrote a journal it could never read back.** `projectKey` is `null`
+  when the working directory carries no trustworthy identity (no git repository, no marker file), and
+  three readers in `src/memory/service.ts` treated that `null` as "no rows" rather than as the
+  unprojected layer: `listVisible` returned early with the global layer, `#listScopes` answered `[]` to
+  any request naming the `project` or `daily` layer, and the `#filter` used by the search tool dropped
+  every `project`/`daily` row when the session's key was null. Every other layer in the plugin already
+  read a null key as a real key — `repository.buildWhere` matches it with `project_key IS ?`
+  ("the entries with no project"), the retrieval SQL filters `scope NOT IN ('project','daily') OR
+  project_key IS ?`, and `appendDaily`'s own parameter documents `null` as "the unprojected layer" —
+  so `evermemory_log` filed the day under a null key and `evermemory_search` then reported
+  `no entry matched` about the row it had written seconds earlier. Found by using the installed plugin
+  in a host whose working directory is `D:\SKILL制作`: the store held the day row (`scope: 'daily'`,
+  `project_key: NULL`) and the raw index matched the query, while the tool could not. A null key is now
+  a key everywhere: such a session reads back the day it wrote, can list the `daily` layer and archive
+  its own day, still cannot reach a keyed row, and a keyed session still cannot reach the unprojected
+  one. `tests/tools.test.ts` drives the round trip through the tools and
+  `tests/inject-context.test.ts` pins the injection assembly.
 - **The shipped browser half was not JavaScript.** `scripts/bundle-client.mjs` escaped every backtick
   and `${` in the bundled body before interpolating it into the module wrapper — escaping that belonged
   to an earlier revision which pasted the body into the wrapper template literal. The wrapper

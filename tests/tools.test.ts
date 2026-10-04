@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, parse } from 'node:path'
 import { after, describe, test } from 'node:test'
 import type { ToolDefinition, ToolExecution } from '@deepseek-ai/dsh-tools'
 
 import { unwrapConfig } from '../src/config.ts'
 import type { ResolvedConfig } from '../src/config.ts'
-import { createSession } from '../src/memory/service.ts'
+import { createSession, listVisible } from '../src/memory/service.ts'
 import { openStore, type OpenStore } from '../src/storage/db.ts'
 import { StoreHandle } from '../src/storage/handle.ts'
 import { MemoryRepository } from '../src/storage/repository.ts'
@@ -611,5 +611,148 @@ describe('failures are reported, not thrown at the model as filesystem errors', 
       /cancelled/u,
     )
     assert.equal(rt.repository.count(), 0)
+  })
+})
+
+/**
+ * A working directory that resolves to NO project at all, so the session has a null project key.
+ *
+ * The path is deliberately one that does not exist, sitting directly under the volume root.
+ * Identity resolution walks UP from the directory looking for a marker file, and a marker above
+ * the temp directory makes an ordinary temp fixture a trustworthy project on some machines and
+ * not on others — `~/.dsh` is a marker, so on a machine with a DSH home every temp directory
+ * beneath it resolves to that home as a project, while `D:\SKILL制作` — the live example that
+ * produced this suite — resolves to nothing. The volume root holds no marker, so this path ends
+ * the chain the same way everywhere: `source: 'cwd'`, and untrustworthy.
+ *
+ * Existence is irrelevant to identity resolution, and the store these tests write to is a temp
+ * database, so nothing here needs the directory to be real — only for the walk above it to be the
+ * one a session with no project sees.
+ */
+function unprojectedDir(): string {
+  const dir = join(parse(tmpdir()).root, 'evm-tools-no-project')
+  assert.equal(
+    createSession(dir).projectKey,
+    null,
+    `precondition: ${dir} must resolve to no project, else the null-key assertions below pass for the wrong reason`,
+  )
+  return dir
+}
+
+describe('a session with no project', () => {
+  test('reads back the journal entry it just wrote', async () => {
+    const rt = await runtime()
+    const cwd = unprojectedDir()
+
+    const logged = await call<{ written: number, id?: number }>(
+      rt,
+      'evermemory_log',
+      { entries: ['tried the unprojected layer'] },
+      cwd,
+    )
+    assert.equal(logged.value.written, 1)
+    assert.equal(
+      rt.repository.get(logged.value.id as number)?.projectKey,
+      null,
+      'the day is filed under a null key: that is the layer under test, not an accident of the fixture',
+    )
+
+    const found = await call<{ count: number, entries: { id: number, scope: string, text: string }[] }>(
+      rt,
+      'evermemory_search',
+      { query: 'unprojected' },
+      cwd,
+    )
+    assert.equal(found.value.count, 1, 'an entry the session wrote has to be findable by the session')
+    assert.equal(found.value.entries[0]?.id, logged.value.id)
+    assert.equal(found.value.entries[0]?.scope, 'daily')
+    assert.match(found.text, /#\d+ \[daily\]/u)
+  })
+
+  test('lists it when the daily layer is requested, and reports nothing for the project layer', async () => {
+    const rt = await runtime()
+    const cwd = unprojectedDir()
+    await call(rt, 'evermemory_log', { entries: ['shipped the daily fix'] }, cwd)
+
+    const daily = await call<{ count: number, entries: { scope: string, text: string }[] }>(
+      rt,
+      'evermemory_search',
+      { scope: 'daily' },
+      cwd,
+    )
+    assert.equal(daily.value.count, 1, 'the unprojected day is a layer this session can list')
+    assert.equal(daily.value.entries[0]?.scope, 'daily')
+
+    const project = await call<{ count: number }>(rt, 'evermemory_search', { scope: 'project' }, cwd)
+    assert.equal(project.value.count, 0, 'a session with no project has no project layer to list')
+  })
+
+  test('never sees a keyed row, and a keyed session never sees the unprojected day', async () => {
+    const rt = await runtime()
+    const plain = unprojectedDir()
+    const alpha = projectDir('alpha')
+    // A day on each side and a project rule, so every direction of a leak has a row to leak.
+    await call(rt, 'evermemory_log', { entries: ['unprojected day'] }, plain)
+    await call(rt, 'evermemory_log', { entries: ['keyed day'] }, alpha)
+    await call(rt, 'evermemory_remember', { text: 'alpha builds with pnpm', scope: 'project' }, alpha)
+
+    const fromPlain = await call<{ count: number, entries: { text: string }[] }>(rt, 'evermemory_search', {}, plain)
+    assert.equal(fromPlain.value.count, 1, 'the unprojected session owns one row: its own day')
+    assert.match(fromPlain.value.entries[0]?.text ?? '', /unprojected day/u)
+
+    const fromAlpha = await call<{ count: number, entries: { text: string }[] }>(rt, 'evermemory_search', {}, alpha)
+    assert.equal(fromAlpha.value.count, 2, 'the project session owns its rule and its own day')
+    assert.ok(
+      fromAlpha.value.entries.every((entry) => !entry.text.includes('unprojected day')),
+      `the unprojected day leaked into a project session: ${JSON.stringify(fromAlpha.value.entries)}`,
+    )
+
+    // A query with terms that the strict `AND` cannot satisfy is retried with `OR`
+    // (`src/retrieval/retriever.ts:152-171`), so this search legitimately returns this session's
+    // own day — the one that shares the word "day". What it must never return is the other side's
+    // row: a null key is a layer, not a wildcard.
+    const cross = await call<{ entries: { text: string }[] }>(
+      rt,
+      'evermemory_search',
+      { query: 'unprojected day' },
+      alpha,
+    )
+    assert.ok(
+      cross.value.entries.every((entry) => !entry.text.includes('unprojected day')),
+      `the unprojected day is reachable from a keyed session: ${JSON.stringify(cross.value.entries)}`,
+    )
+
+    const reverse = await call<{ count: number }>(rt, 'evermemory_search', { query: 'pnpm' }, plain)
+    assert.equal(reverse.value.count, 0, 'and the keyed project rule is not reachable from the null key')
+  })
+
+  test('can archive its own unprojected day, and still cannot archive a keyed one', async () => {
+    // Write and read were fixed together; a row a session may create but never retract would pile
+    // up forever, so the ownership guard has to read the null key the same way the readers do.
+    const rt = await runtime()
+    const plain = unprojectedDir()
+    const alpha = projectDir('alpha')
+
+    const own = await call<{ id?: number }>(rt, 'evermemory_log', { entries: ['a note to retract'] }, plain)
+    const forgotten = await call<{ ok: boolean, status: string }>(rt, 'evermemory_forget', { id: own.value.id }, plain)
+    assert.equal(forgotten.value.ok, true)
+    assert.equal(forgotten.value.status, 'archived')
+
+    const keyed = await call<{ id?: number }>(rt, 'evermemory_log', { entries: ['alpha note'] }, alpha)
+    const refused = await call<{ ok: boolean, reason: string }>(rt, 'evermemory_forget', { id: keyed.value.id }, plain)
+    assert.equal(refused.value.ok, false, 'an unprojected session must not reach a keyed row')
+    assert.match(refused.value.reason, /another project/u)
+  })
+
+  test('the injection reader and the search tool agree about what it owns', async () => {
+    // `listVisible` is what the injection engine's index/card reader calls, and its own doc says
+    // the two callers "must agree". They did not: a session could be told about a memory by a tool
+    // and never see it in the prompt, or the reverse.
+    const rt = await runtime()
+    const cwd = unprojectedDir()
+    const logged = await call<{ id?: number }>(rt, 'evermemory_log', { entries: ['the unprojected layer is real'] }, cwd)
+
+    const visible = listVisible(rt.repository, createSession(cwd).projectKey, { status: 'active' })
+    assert.deepEqual(visible.map((row) => row.id), [logged.value.id])
   })
 })

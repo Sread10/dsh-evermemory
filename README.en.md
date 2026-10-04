@@ -7,7 +7,7 @@ Open a new session and you do not re-introduce yourself, re-align on requirement
 project background.
 
 > **Status: feature complete, first release 0.1.0.** The storage layer, distillation engine, injection
-> engine, tool set, import engine and settings panel are all implemented, with 432 tests covering the
+> engine, tool set, import engine and settings panel are all implemented, with 437 tests covering the
 > contracts, the budget invariants and each module's behaviour; see the [roadmap](#roadmap).
 
 ---
